@@ -1,4 +1,5 @@
 import os
+
 import psycopg
 from dotenv import load_dotenv
 
@@ -8,10 +9,11 @@ load_dotenv()
 def connect():
     return psycopg.connect(
         host=os.getenv("DB_HOST", "localhost"),
-        port=int(ps.getenv("DB_PORT", "5432")),
+        port=int(os.getenv("DB_PORT", "5432")),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
         dbname=os.getenv("DB_NAME"),
+        connect_timeout=10,
     )
 
 

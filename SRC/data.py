@@ -1,11 +1,10 @@
 import random
-import uuid
-
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
+
 from faker import Faker
 
-from database import insert_data, fetch_all, fetch_one
+from database import fetch_all, fetch_one, insert_data
 
 fake = Faker()
 
@@ -18,9 +17,9 @@ def generate_roles(connection):
 
     query = """
 
-        INSSERT INTO Roles(roleName)
+        INSERT INTO Roles(roleName)
         VALUES(%s)
-        ON CONFLICT (roleName) DO NOthing
+        ON CONFLICT (roleName) DO NOTHING
     """
 
     count = insert_data(connection, query, records)
@@ -34,7 +33,10 @@ def generate_companies(connection, count=80):
     sectors = [
         "Technology",
         "Healthcare",
-        "EnergyFinanceIndustrialsCommunicationArt History?",
+        "Energy",
+        "Finance",
+        "Industrials",
+        "Communication",
     ]
 
     start_id = (
@@ -50,8 +52,18 @@ def generate_companies(connection, count=80):
 
     records = []
 
+    company_names = {
+        row[0] for row in fetch_all(connection, "SELECT companyName FROM Company")
+    }
     for i in range(count):
-        records.append((start_id + i, fake.company(), random.choice(sectors)))
+        base_name = fake.company()
+        company_name = base_name
+        suffix = 1
+        while company_name in company_names:
+            company_name = f"{base_name} ({suffix})"
+            suffix += 1
+        company_names.add(company_name)
+        records.append((start_id + i, company_name, random.choice(sectors)))
 
     query = """
         INSERT INTO Company(
@@ -92,9 +104,9 @@ def generate_users(connection, roles, count=1000):
             )
         )
 
-        query = """
+    query = """
             INSERT INTO Users(
-                email, 
+                email,
                 passwordHash,
                 balance,
                 createdAt,
@@ -105,10 +117,10 @@ def generate_users(connection, roles, count=1000):
             ON CONFLICT (email) DO NOTHING
         """
 
-        inserted = insert_data(connection, query, records)
-        print(f"Users: {inserted} records inserted")
+    inserted = insert_data(connection, query, records)
+    print(f"Users: {inserted} records inserted")
 
-        return [row[0] for row in fetch_all(connection, "SELECT email FROM Users")]
+    return [row[0] for row in fetch_all(connection, "SELECT email FROM Users")]
 
 
 def generate_stocks(connection, company_ids, count=100):
@@ -135,3 +147,112 @@ def generate_stocks(connection, company_ids, count=100):
     print(f"Stocks: {inserted} records inserted")
 
     return [row[0] for row in fetch_all(connection, "SELECT tickerSymbol FROM Stocks")]
+
+
+def generate_stock_prices(connection, tickers, days=250):
+    records = []
+
+    start_date = date(2025, 1, 1)
+
+    for ticker in tickers:
+        price = Decimal(random.randint(20, 500))
+
+        trading_date = start_date
+        generated_days = 0
+
+        while generated_days < days:
+            if trading_date.weekday() < 5:
+                opening_price = price
+
+                change = Decimal(str(random.uniform(-0.05, 0.05)))
+
+                closing_price = opening_price * (1 + change)
+
+                daily_max = max(
+                    opening_price,
+                    closing_price,
+                ) * Decimal(str(random.uniform(1, 1.03)))
+
+                daily_min = min(opening_price, closing_price) * Decimal(
+                    str(random.uniform(0.97, 1))
+                )
+
+                records.append(
+                    (
+                        ticker,
+                        trading_date,
+                        round(opening_price, 4),
+                        round(closing_price, 4),
+                        round(daily_max, 4),
+                        round(daily_min, 4),
+                    )
+                )
+
+                price = closing_price
+                generated_days += 1
+
+            trading_date += timedelta(days=1)
+
+    query = """
+        INSERT INTO StockPrices(
+            tickerSymbol,
+            tradingDate,
+            openingPrice,
+            closingPrice,
+            dailyMax,
+            dailyMin
+        )
+
+        VALUES(%s, %s, %s, %s,%s,%s)
+        ON CONFLICT (tickerSymbol, tradingDate)
+        DO NOTHING
+    """
+
+    inserted = insert_data(connection, query, records)
+
+    print(f"StockPrices: {inserted} records inserted")
+
+
+def generate_revenue_reports(connection, company_ids):
+
+    records = []
+
+    revenue_id = (
+        fetch_one(
+            connection,
+            """
+        SELECT COALESCE(MAX(revenueId),0)
+        FROM AnnualRevenueReport
+""",
+        )[0]
+        + 1
+    )
+
+    for company_id in company_ids:
+        revenue = Decimal(random.randint(1_000_000, 10_000_000_000))
+
+        for year in range(2016, 2026):
+            growth = Decimal(str(random.uniform(-0.15, 0.25)))
+
+            revenue = round(revenue * (1 + growth), 2)
+
+            records.append((revenue_id, company_id, year, revenue, "USD"))
+
+            revenue_id += 1
+
+    query = """
+        INSERT INTO AnnualRevenueReport(
+            revenueId,
+            companyId,
+            fiscalYear,
+            totalRevenue,
+            currency
+        )
+        VALUES(%s, %s, %s, %s, %s)
+        ON CONFLICT (companyId, fiscalYear)
+        DO NOTHING
+        """
+
+    inserted = insert_data(connection, query, records)
+
+    print(f"AnnualRevenueReport: {inserted} records inserted")
