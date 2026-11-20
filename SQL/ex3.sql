@@ -20,12 +20,10 @@ INSERT INTO StockPrices VALUES
 	('RY',   '2026-11-19', 141.30, 140.80, 142.00, 140.10);
 
 INSERT INTO Transactions (email, tickerSymbol, quantity, createdAt, transactionType, price)
-VALUES ('alice@example.com', 'AAPL', 10, TIMESTAMP '2026-11-18 09:45:00', 'BUY', 187.50);
-
-INSERT INTO Transactions (id, email, tickerSymbol, quantity, createdAt, transactionType, price)
 VALUES
-	(DEFAULT, 'bob@example.com',   'RY',   5, TIMESTAMP '2026-11-18 10:30:00', 'BUY',  139.60),
-	(DEFAULT, 'alice@example.com', 'AAPL', 4, TIMESTAMP '2026-11-19 14:05:00', 'SELL', 193.00);
+	('alice@example.com', 'AAPL', 10, TIMESTAMP '2026-11-18 09:45:00', 'BUY',  187.50),
+	('bob@example.com',   'RY',    5, TIMESTAMP '2026-11-18 10:30:00', 'BUY',  139.60),
+	('alice@example.com', 'AAPL',  4, TIMESTAMP '2026-11-19 14:05:00', 'SELL', 193.00);
 
 INSERT INTO Transactions (email, tickerSymbol, quantity, createdAt, transactionType, price)
 SELECT u.email, sp.tickerSymbol, 2, CAST(sp.tradingDate AS TIMESTAMP), 'BUY', sp.dailyMin
@@ -35,5 +33,18 @@ WHERE u.roleName = 'TRADER'
   AND sp.tradingDate = (SELECT MAX(sp2.tradingDate)
                         FROM StockPrices sp2
                         WHERE sp2.tickerSymbol = sp.tickerSymbol);
+
+INSERT INTO Transactions (email, tickerSymbol, quantity, createdAt, transactionType, price)
+SELECT t.email, t.tickerSymbol,
+       SUM(CASE WHEN t.transactionType = 'BUY' THEN t.quantity ELSE -t.quantity END) / 2,
+       CAST(sp.tradingDate AS TIMESTAMP) + INTERVAL '15' HOUR,
+       'SELL', sp.dailyMax
+FROM Transactions t
+JOIN StockPrices sp ON sp.tickerSymbol = t.tickerSymbol
+WHERE sp.tradingDate = (SELECT MAX(sp2.tradingDate)
+                        FROM StockPrices sp2
+                        WHERE sp2.tickerSymbol = sp.tickerSymbol)
+GROUP BY t.email, t.tickerSymbol, sp.tradingDate, sp.dailyMax
+HAVING SUM(CASE WHEN t.transactionType = 'BUY' THEN t.quantity ELSE -t.quantity END) > 0;
 
 SELECT * FROM Transactions;
