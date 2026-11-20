@@ -1,4 +1,4 @@
-import random 
+import random
 import uuid
 
 from datetime import date, datetime, timedelta
@@ -12,8 +12,9 @@ fake = Faker()
 random.seed(42)
 Faker.seed(42)
 
+
 def generate_roles(connection):
-    records = [("Admin",),("Trader",),("Analyst",)]
+    records = [("Admin",), ("Trader",), ("Analyst",)]
 
     query = """
 
@@ -33,29 +34,24 @@ def generate_companies(connection, count=80):
     sectors = [
         "Technology",
         "Healthcare",
-        "Energy"
-        "Finance"
-        "Industrials"
-        "Communication"
-        "Art History?"
+        "EnergyFinanceIndustrialsCommunicationArt History?",
     ]
 
-    start_id = fetch_one(
-        connection, 
-        """
+    start_id = (
+        fetch_one(
+            connection,
+            """
         SELECT COALESCE(MAX(companyId),0)
         FROM Company
-        """
-    )[0] +1
+        """,
+        )[0]
+        + 1
+    )
 
     records = []
 
     for i in range(count):
-        records.append((
-            start_id +i,
-            fake.company(),
-            random.choice(sectors)
-        ))
+        records.append((start_id + i, fake.company(), random.choice(sectors)))
 
     query = """
         INSERT INTO Company(
@@ -65,48 +61,36 @@ def generate_companies(connection, count=80):
         )
         VALUES(%s, %s, %s)
         """
-    inserted = insert_data(connection,query,records)
+    inserted = insert_data(connection, query, records)
 
     print(f"Company: {inserted} records inserted")
 
-    return [
-        row[0] for row in fetch_all(
-            connection,
-            "SELECT companyId FROM Company"
-        )
-    ]
+    return [row[0] for row in fetch_all(connection, "SELECT companyId FROM Company")]
+
 
 def generate_users(connection, roles, count=1000):
-    
-    records = []
-    
-    for i in range (1, count + 1):
 
+    records = []
+
+    for i in range(1, count + 1):
         email = f"user{i}@example.com"
 
-        balance = Decimal(
-            random.randint(1000,1000000)
+        balance = Decimal(random.randint(1000, 1000000))
+
+        created_at = fake.date_time_between(start_date="-3y", end_date="now")
+
+        role = random.choices(roles, weights=[1, 90, 9], k=1)[0]
+
+        records.append(
+            (
+                email,
+                "SYNTHETIC_PASSWORD_HASH",
+                balance,
+                created_at,
+                role,
+                created_at.date(),
+            )
         )
-
-        created_at = fake.date_time_between(
-            start_date="-3y"
-            end_date="now"
-        )
-
-        role = random.choices(
-            roles,
-            weights=[1,90,9],
-            k=1
-        )[0]
-
-        records.append((
-            email,
-            "SYNTHETIC_PASSWORD_HASH",
-            balance,
-            created_at,
-            role,
-            created_at.date()
-        ))
 
         query = """
             INSERT INTO Users(
@@ -121,30 +105,21 @@ def generate_users(connection, roles, count=1000):
             ON CONFLICT (email) DO NOTHING
         """
 
-        inserted = insert_data(connection,query,records)
+        inserted = insert_data(connection, query, records)
         print(f"Users: {inserted} records inserted")
 
-        return [
-            row[0] for row in fetch_all(
-                connection,
-                "SELECT email FROM Users"
-            )
-        ]
+        return [row[0] for row in fetch_all(connection, "SELECT email FROM Users")]
+
 
 def generate_stocks(connection, company_ids, count=100):
-    exchanges =["NASDAQ", "NYSE", "TSX"]
+    exchanges = ["NASDAQ", "NYSE", "TSX"]
 
     records = []
 
-    for i in range (1, count +1):
-
+    for i in range(1, count + 1):
         ticker = f"STK{i:04d}"
 
-        records.append((
-            ticker,
-            random.choice(company_ids)
-            random.choice(exchanges)
-        ))
+        records.append((ticker, random.choice(company_ids), random.choice(exchanges)))
 
     query = """
                 INSERT INTO Stocks(
@@ -156,16 +131,7 @@ def generate_stocks(connection, company_ids, count=100):
                 ON CONFLICT (tickerSymbol) DO NOTHING
             """
 
-    inserted = insert_data(connection,query, records)
+    inserted = insert_data(connection, query, records)
     print(f"Stocks: {inserted} records inserted")
 
-    return [ 
-                row[0] for row in fetch_all(
-                    connection,
-                    "SELECT tickerSymbol FROM Stocks"
-                )
-            ]
-
-
-
-
+    return [row[0] for row in fetch_all(connection, "SELECT tickerSymbol FROM Stocks")]
