@@ -1,4 +1,5 @@
 import random
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -77,7 +78,12 @@ def generate_companies(connection, count=80):
 
     print(f"Company: {inserted} records inserted")
 
-    return [row[0] for row in fetch_all(connection, "SELECT companyId FROM Company")]
+    return [
+        row[0]
+        for row in fetch_all(
+            connection, "SELECT companyId FROM Company ORDER BY companyId"
+        )
+    ]
 
 
 def generate_users(connection, roles, count=1000):
@@ -120,7 +126,9 @@ def generate_users(connection, roles, count=1000):
     inserted = insert_data(connection, query, records)
     print(f"Users: {inserted} records inserted")
 
-    return [row[0] for row in fetch_all(connection, "SELECT email FROM Users")]
+    return [
+        row[0] for row in fetch_all(connection, "SELECT email FROM Users ORDER BY email")
+    ]
 
 
 def generate_stocks(connection, company_ids, count=100):
@@ -146,7 +154,124 @@ def generate_stocks(connection, company_ids, count=100):
     inserted = insert_data(connection, query, records)
     print(f"Stocks: {inserted} records inserted")
 
-    return [row[0] for row in fetch_all(connection, "SELECT tickerSymbol FROM Stocks")]
+    return [
+        row[0]
+        for row in fetch_all(
+            connection, "SELECT tickerSymbol FROM Stocks ORDER BY tickerSymbol"
+        )
+    ]
+
+
+def generate_holdings(connection, user_emails, tickers, count=5000):
+    if not user_emails or not tickers:
+        print("Holdings: skipped because users or stocks are missing")
+        return 0
+
+    possible_pairs = len(user_emails) * len(tickers)
+    selected_pairs = random.sample(range(possible_pairs), k=min(count, possible_pairs))
+
+    records = []
+    for pair_number in selected_pairs:
+        user_index, ticker_index = divmod(pair_number, len(tickers))
+        ticker = tickers[ticker_index]
+        quantity = Decimal(random.randint(1, 100000)) / Decimal("1000")
+        average_price = Decimal(random.randint(1000, 500000)) / Decimal("100")
+        records.append(
+            (
+                user_emails[user_index],
+                ticker,
+                f"{ticker} position",
+                quantity,
+                average_price,
+            )
+        )
+
+    query = """
+        INSERT INTO Holdings(email, tickerSymbol, holdingName, quantity, averagePrice)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (email, tickerSymbol) DO NOTHING
+    """
+    inserted = insert_data(connection, query, records)
+    print(f"Holdings: {inserted} records inserted")
+    return inserted
+
+
+def generate_transactions(connection, user_emails, tickers, count=5000):
+    if not user_emails or not tickers:
+        print("Transactions: skipped because users or stocks are missing")
+        return 0
+
+    namespace = uuid.UUID("d66dd17e-87cf-5d54-b2d6-566a98f3f8e9")
+    records = []
+    for number in range(1, count + 1):
+        email = random.choice(user_emails)
+        ticker = random.choice(tickers)
+        transaction_id = uuid.uuid5(namespace, f"transaction-{number}-{email}-{ticker}")
+        quantity = Decimal(random.randint(1, 100000)) / Decimal("1000")
+        price = Decimal(random.randint(1000, 500000)) / Decimal("100")
+        created_at = fake.date_time_between(start_date="-3y", end_date="now")
+        transaction_type = random.choice(("BUY", "SELL"))
+        records.append(
+            (
+                transaction_id,
+                email,
+                ticker,
+                quantity,
+                created_at,
+                transaction_type,
+                price,
+            )
+        )
+
+    query = """
+        INSERT INTO Transactions(
+            id, email, tickerSymbol, quantity, createdAt, transactionType, price
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (id) DO NOTHING
+    """
+    inserted = insert_data(connection, query, records)
+    print(f"Transactions: {inserted} records inserted")
+    return inserted
+
+
+def generate_ai_analyses(connection, tickers, count=500):
+    if not tickers:
+        print("AIAnalyses: skipped because stocks are missing")
+        return 0
+
+    namespace = uuid.UUID("a99c886e-e478-54c0-87b0-3e98fbaf7d73")
+    recommendations = ("BUY", "SELL", "HOLD")
+    records = []
+    for number in range(1, count + 1):
+        ticker = tickers[(number - 1) % len(tickers)]
+        analysis_id = uuid.uuid5(namespace, f"analysis-{number}-{ticker}")
+        predicted_price = Decimal(random.randint(1000, 500000)) / Decimal("100")
+        model_accuracy = Decimal(random.randint(5000, 10000)) / Decimal("10000")
+        prediction_time = fake.date_time_between(start_date="-2y", end_date="now")
+        records.append(
+            (
+                analysis_id,
+                ticker,
+                prediction_time,
+                predicted_price,
+                random.choice(recommendations),
+                model_accuracy,
+                f"Synthetic demonstration analysis for {ticker}.",
+            )
+        )
+
+    query = """
+        INSERT INTO AIAnalyses(
+            analysisUUID, tickerSymbol, predictionTimestamp, predictedPrice,
+            recommendation, modelAccuracy, reasoning
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (analysisUUID) DO NOTHING
+    """
+    inserted = insert_data(connection, query, records)
+    print(f"AIAnalyses: {inserted} records inserted")
+    return inserted
 
 
 def generate_stock_prices(connection, tickers, days=250):
