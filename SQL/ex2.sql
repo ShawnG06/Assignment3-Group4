@@ -1,5 +1,3 @@
---Tables 
-
 CREATE TABLE Roles(
 	roleName VARCHAR(30) PRIMARY KEY
 );
@@ -7,7 +5,10 @@ CREATE TABLE Roles(
 CREATE TABLE Company(
 	companyId INT PRIMARY KEY,
 	companyName VARCHAR(150) NOT NULL,
-	sector VARCHAR(100) NOT NULL
+	sector VARCHAR(100) NOT NULL,
+
+	CONSTRAINT uq_company_name
+		UNIQUE (companyName)
 );
 
 CREATE TABLE Users(
@@ -16,11 +17,17 @@ CREATE TABLE Users(
 	balance DECIMAL(18,2) NOT NULL DEFAULT 0,
 	createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	roleName VARCHAR(30) NOT NULL,
-	assignedDate DATE NOT NULL,
+	assignedDate DATE NOT NULL DEFAULT CURRENT_DATE,
 
 	CONSTRAINT fk_users_role
 		FOREIGN KEY (roleName)
-		REFERENCES Roles(roleName)
+		REFERENCES Roles(roleName),
+
+	CONSTRAINT chk_users_balance
+		CHECK (balance >= 0),
+
+	CONSTRAINT chk_users_email
+		CHECK (email LIKE '%_@_%._%')
 );
 
 CREATE TABLE Stocks(
@@ -30,7 +37,13 @@ CREATE TABLE Stocks(
 
 	CONSTRAINT fk_stocks_company
 		FOREIGN KEY (companyId)
-		REFERENCES Company(companyId)
+		REFERENCES Company(companyId),
+
+	CONSTRAINT chk_stocks_ticker
+		CHECK (tickerSymbol = UPPER(tickerSymbol)),
+
+	CONSTRAINT chk_stocks_exchange
+		CHECK (exchange IN ('NYSE', 'NASDAQ', 'TSX', 'LSE'))
 );
 
 CREATE TABLE Holdings(
@@ -43,7 +56,7 @@ CREATE TABLE Holdings(
 	PRIMARY KEY (email, tickerSymbol),
 
 	CONSTRAINT fk_holdings_user
-		FOREIGN KEY (tickerSymbol)
+		FOREIGN KEY (email)
 		REFERENCES Users(email),
 	
 	CONSTRAINT chk_holdings_stock
@@ -103,7 +116,7 @@ CREATE TABLE StockPrices(
 		CHECK (dailyMin >0),
 
 	CONSTRAINT chk_stockprices_max
-		CHECK(dailyMax > dailyMin),
+		CHECK(dailyMax >= dailyMin),
 	
 	CONSTRAINT chk_stockprices_range
 		CHECK (openingPrice BETWEEN dailyMin AND dailyMax),
@@ -113,7 +126,7 @@ CREATE TABLE StockPrices(
 );
 
 CREATE TABLE AIAnalyses(
-	analysisUUID CHAR(36) PRIMARY KEY,
+	analysisUUID UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	tickerSymbol VARCHAR(10) NOT NULL,
 	predictionTimestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	predictedPrice DECIMAL(12,4) NOT NULL,
@@ -153,8 +166,10 @@ CREATE TABLE AnnualRevenueReport(
 		CHECK (totalRevenue >= 0),
 
 	CONSTRAINT chk_revenue_year
-		CHECK (fiscalYear >= 1900)
+		CHECK (fiscalYear >= 1900),
 
+	CONSTRAINT chk_revenue_currency
+		CHECK (currency = UPPER(currency))
 );
 
 CREATE TABLE RevenueAnalysis(
@@ -171,6 +186,18 @@ CREATE TABLE RevenueAnalysis(
 		FOREIGN KEY (revenueId)
 		REFERENCES AnnualRevenueReport(revenueId)
 );
+
+CREATE INDEX idx_users_role              ON Users(roleName);
+CREATE INDEX idx_stocks_company          ON Stocks(companyId);
+CREATE INDEX idx_holdings_ticker         ON Holdings(tickerSymbol);
+CREATE INDEX idx_transactions_user_time  ON Transactions(email, createdAt DESC);
+CREATE INDEX idx_transactions_tick_time  ON Transactions(tickerSymbol, createdAt DESC);
+CREATE INDEX idx_stockprices_date        ON StockPrices(tradingDate);
+CREATE INDEX idx_aianalyses_ticker_time  ON AIAnalyses(tickerSymbol, predictionTimestamp DESC);
+CREATE INDEX idx_revenue_year            ON AnnualRevenueReport(fiscalYear);
+CREATE INDEX idx_revenueanalysis_revenue ON RevenueAnalysis(revenueId);
+
+CREATE UNIQUE INDEX uq_users_email_lower ON Users (LOWER(email));
 
 
 
