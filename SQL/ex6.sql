@@ -12,19 +12,14 @@ SET recommendation = 'HOLD'
 WHERE recommendation = 'BUY'
   AND modelAccuracy < 0.60;
 
-
--- 3. Link AI analyses to earlier company revenue reports.
+-- 3. Link each analysis to the company's revenue reports
+-- from fiscal years before the prediction year.
 INSERT INTO RevenueAnalysis (analysisUUID, revenueId)
 SELECT a.analysisUUID, r.revenueId
 FROM AIAnalyses AS a
 JOIN Stocks AS s
-    ON s.tickerSymbol = a.tickerSymbol
+  ON s.tickerSymbol = a.tickerSymbol
 JOIN AnnualRevenueReport AS r
-    ON r.companyId = s.companyId
-   AND r.fiscalYear < EXTRACT(YEAR FROM a.predictionTimestamp)
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM RevenueAnalysis AS ra
-    WHERE ra.analysisUUID = a.analysisUUID
-      AND ra.revenueId = r.revenueId
-);
+  ON r.companyId = s.companyId
+ AND r.fiscalYear < EXTRACT(YEAR FROM a.predictionTimestamp)
+ON CONFLICT (analysisUUID, revenueId) DO NOTHING;
