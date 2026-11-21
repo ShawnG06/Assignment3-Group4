@@ -37,7 +37,7 @@ WHERE u.roleName = 'TRADER'
 INSERT INTO Transactions (email, tickerSymbol, quantity, createdAt, transactionType, price)
 SELECT t.email, t.tickerSymbol,
        SUM(CASE WHEN t.transactionType = 'BUY' THEN t.quantity ELSE -t.quantity END) / 2,
-       CAST(sp.tradingDate AS TIMESTAMP) + INTERVAL '15' HOUR,
+       CAST(sp.tradingDate AS TIMESTAMP) + INTERVAL '15 hours',
        'SELL', sp.dailyMax
 FROM Transactions t
 JOIN StockPrices sp ON sp.tickerSymbol = t.tickerSymbol

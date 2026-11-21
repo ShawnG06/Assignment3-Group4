@@ -59,7 +59,7 @@ CREATE TABLE Holdings(
 		FOREIGN KEY (email)
 		REFERENCES Users(email),
 	
-	CONSTRAINT chk_holdings_stock
+	CONSTRAINT fk_holdings_stock
 		FOREIGN KEY (tickerSymbol)
 		REFERENCES Stocks(tickerSymbol),
 	
