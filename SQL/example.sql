@@ -1,3 +1,3 @@
-CREATE DATABASE IF NOT EXISTS stock_trading;
-USE stock_trading;
+CREATE DATABASE stock_trading;
+\c stock_trading;
 

@@ -27,10 +27,9 @@ def main():
             company_ids,
             count=100,
         )
-
         generate_holdings(connection, user_emails, tickers, count=5000)
-        generate_transactions(connection, user_emails, tickers, count=5000)
         generate_stock_prices(connection, tickers, days=250)
+        generate_transactions(connection, user_emails, tickers, count=5000)
         generate_ai_analyses(connection, tickers, count=500)
 
         generate_revenue_reports(connection, company_ids)

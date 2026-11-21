@@ -14,7 +14,7 @@ Faker.seed(42)
 
 
 def generate_roles(connection):
-    records = [("Admin",), ("Trader",), ("Analyst",)]
+    records = [("ADMIN",), ("TRADER",)]
 
     query = """
 
